@@ -1,0 +1,288 @@
+<?php
+/**
+ * Модуль разработан в компании GateOn предназначен для Host CMS v.6.6.1
+ * Сайт разработчикa: www.gateon.net
+ * E-mail: www@smartbyte.pro
+ * Interkassa 2.0
+ * Версия 1.3
+ */
+
+class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
+{
+	// Идентификатор магазина в системе Interkassa
+	protected $_ik_co_id = "идентификатор вашей кассы Интеркассы";
+	
+	//Секретный ключ (Secret Key) в системе Interkassa
+	protected $_ik_secret_key = "вставьте секретный ключ из вкладки безопасность";
+	
+	//Секретный ключ (Test Key) в системе Interkassa
+	protected $_ik_test_key = "вставьте секретный ключ из вкладки безопасность";
+
+	// Код валюты в магазине HostCMS для валюты платежа в личном кабинете Интеркассы
+	protected $_interkassa_currency = 1; //вставьте сюда число из Интернет-магазины-> Финансы -> Валюты
+
+	/**
+	 * Метод, вызываемый в коде настроек ТДС через Shop_Payment_System_Handler::checkBeforeContent($oShop);
+	 */
+	public static function checkPaymentBeforeContent()
+	{
+		// $this->wrlog('checkPaymentBeforeContent');
+		if (isset($_REQUEST['ik_co_id']))
+		{
+			// Получаем ID заказа
+			$order_id = intval(Core_Array::getRequest('ik_payment_id'));
+
+			$oShop_Order = Core_Entity::factory('Shop_Order')->find($order_id);
+
+			if (!is_null($oShop_Order->id))
+			{
+				// Вызов обработчика платежной системы
+				Shop_Payment_System_Handler::factory($oShop_Order->Shop_Payment_System)
+				->shopOrder($oShop_Order)
+				->paymentProcessing();
+			}
+		}
+	}
+	
+	/*
+	 * Метод, запускающий выполнение обработчика
+	 */
+	public function execute()
+	{
+		$this->wrlog('execute');
+		
+		parent::execute();
+
+		$this->printNotification();
+
+		return $this;
+	}
+
+	protected function _processOrder()
+	{
+		$this->wrlog('_processOrder');
+		
+		
+		parent::_processOrder();
+
+		$this->setXSLs();
+
+		// Отправка писем клиенту и пользователю
+		$this->send();
+
+		return $this;
+	}
+
+	public function paymentProcessing()
+	{
+		$this->wrlog('paymentProcessing');
+		
+		// Пришло подтверждение оплаты, обработаем его
+		if (isset($_REQUEST['ik_pm_no']))
+		{
+			$this->ProcessResult();
+			return TRUE;
+		}
+	}
+
+	/*
+	 * Обработка статуса оплаты
+	 */
+	function ProcessResult()
+	{
+		//Вывод всего ответа Интеркассы в log.txt(в корне сайта) по желанию
+		foreach ($_REQUEST as $key => $value) {
+			$str = $key.' => '.$value;
+			wrlog($str);
+		}
+		wrlog('--------');
+		$this->wrlog('processResult');
+
+		$eshopId = Core_Array::getRequest('ik_co_id');
+		
+		if(count($_REQUEST) && $eshopId == $_REQUEST['ik_co_id']){
+
+			wrlog('params ok');
+
+			if ($_REQUEST['ik_inv_st'] == 'success'){
+				wrlog('success');
+
+				if (isset($_REQUEST['ik_sign'])){
+					wrlog('payment_success');
+
+					$ik_shop_id = Core_Array::getRequest('ik_co_id');
+					$ik_payment_amount = Core_Array::getRequest('ik_am');
+					$ik_payment_id = Core_Array::getRequest('ik_pm_no');
+					$ik_payment_desc = Core_Array::getRequest('ik_desc');
+					$ik_payment_state = Core_Array::getRequest('ik_inv_st');
+					$ik_currency_exch = Core_Array::getRequest('ik_cur');
+
+					if(isset($_REQUEST['ik_pw_via']) && $_REQUEST['ik_pw_via'] == 'test_interkassa_test_xts'){
+						$secret_key = $this->_ik_test_key;
+					} else {
+						$secret_key = $this->_ik_secret_key;	
+					}
+
+					$request_sign = $_REQUEST['ik_sign'];
+
+					$dataSet = [];
+
+					foreach ($_REQUEST as $key => $value) {
+						if (!preg_match('/ik_/', $key)) continue;
+						$dataSet[$key] = $value;
+					}
+
+					unset($dataSet['ik_sign']);
+
+					ksort($dataSet, SORT_STRING); 
+					array_push($dataSet, $secret_key);  
+					$signString = implode(':', $dataSet); 
+					$sign = base64_encode(md5($signString, true)); 
+
+					wrlog($sign . '/'. $request_sign);
+
+				//Если подписи совпадают то осуществляется смена статуса заказа в админке
+					if ($request_sign == $sign){
+						wrlog('order write');
+						$this->_shopOrder->system_information = sprintf("Товар оплачен через Interkassa.\nАтрибуты:\nНомер сайта продавца: %s\nВнутренний номер покупки продавца: %s\nСумма платежа: %s\nВалюта платежа: %s\nНомер счета в системе Interkassa: %s\nДата и время выполнения платежа: %s\nСтатус платежа: 5 - Платеж зачислен\n",
+							$ik_shop_id, $this->_shopOrder->id, $ik_payment_amount,
+							$ik_currency_exch, $ik_payment_id, $ik_payment_state);
+
+						$this->_shopOrder->paid();
+						$this->setXSLs();
+						$this->send();
+					}
+					else{
+						wrlog("order didn't write");
+						$this->_shopOrder->system_information = 'Хэш не совпал, проверочная строка: ' . $signString;
+						$this->_shopOrder->save();
+					}
+
+				}else{
+					wrlog('success_page');
+					$this->_shopOrder->save();
+				}
+			}
+		} else {
+
+			 $this->_shopOrder->system_information = 'Хэш не совпал, проверочная строка: ' . $signString;
+			 $this->_shopOrder->cancelPaid();
+			$this->_shopOrder->save();
+			$this->setXSLs();
+			// $this->send();
+
+		}
+	}
+
+	public function getSumWithCoeff()
+	{
+		return Shop_Controller::instance()->round(($this->_interkassa_currency > 0
+			&& $this->_shopOrder->shop_currency_id > 0
+			? Shop_Controller::instance()->getCurrencyCoefficientInShopCurrency(
+				$this->_shopOrder->Shop_Currency,
+				Core_Entity::factory('Shop_Currency', $this->_interkassa_currency)
+				)
+			: 0) * $this->_shopOrder->getAmount());
+	}
+
+	public function getNotification()
+	{
+		$this->wrlog('getNotification');
+			
+		$sum = $this->getSumWithCoeff();
+
+		$oSite_Alias = $this->_shopOrder->Shop->Site->getCurrentAlias();
+
+		if (is_null($oSite_Alias))
+		{
+			throw new Core_Exception('Site does not have default alias!');
+		}
+
+		$shop_path = $this->_shopOrder->Shop->Structure->getPath();
+		$handler_url = 'http://' . $oSite_Alias->name . $shop_path . "cart/?orderId={$this->_shopOrder->id}";
+
+		$successUrl = $handler_url . "&payment=success";
+		$failUrl = $handler_url . "&payment=fail";
+
+		$oShop_Currency = Core_Entity::factory('Shop_Currency')->find($this->_interkassa_currency);
+
+		if($oShop_Currency->code == 'RUR'){
+			$currency = 'RUB';
+		}else{
+			$currency = $oShop_Currency->code;
+		}
+
+		if(!is_null($oShop_Currency->id))
+		{
+			$serviceName = '#' . $this->_shopOrder->id;
+
+			$dataSet = array(
+			'ik_co_id'=> $this->_ik_co_id,
+			'ik_am'=> $sum,
+			'ik_pm_no'=> $this->_shopOrder->id,
+			'ik_desc'=> $serviceName,
+			'ik_cur'=> $currency,
+			'ik_suc_u'=> $successUrl,
+			'ik_fal_u'=> $failUrl,
+			'ik_pnd_u'=> $failUrl,
+			'ik_ia_u'=> $successUrl
+			);
+
+			ksort($dataSet, SORT_STRING); 
+			array_push($dataSet, $this->_ik_secret_key);  
+			$signString = implode(':', $dataSet); 
+			$sign = base64_encode(md5($signString, true)); 
+			?>
+			<h1>Оплата через систему Interkassa</h1>
+
+			<p>
+				<a href="http://www.interkassa.com/" target="_blank">
+					<img src="http://www.interkassa.com/img/logo-ru.png" border="0" alt="Система электронных платежей">
+				</a>
+			</p>
+			<p>Сумма к оплате составляет <strong><?php echo $this->_shopOrder->sum()?></strong></p>
+
+			<p>Для оплаты нажмите кнопку "Оплатить".</p>
+
+			<p style="color: rgb(112, 112, 112);">
+				Внимание! Нажимая &laquo;Оплатить&raquo; Вы подтверждаете передачу контактных данных на сервер Interkassa для оплаты.
+			</p>
+
+			<form action="https://sci.interkassa.com" method="POST">
+				<input type="hidden" name="ik_co_id" value="<?php echo $this->_ik_co_id?>">
+				<input type="hidden" name="ik_am" value="<?php echo $sum?>">
+				<input type="hidden" name="ik_pm_no" value="<?php echo $this->_shopOrder->id?>">
+				<input type="hidden" name="ik_desc" value="<?php echo $serviceName?>">
+				<input type="hidden" name="ik_cur" value="<?php echo $currency; ?>" />
+				<input type="hidden" name="ik_suc_u" value="<?php echo $successUrl?>">
+				<input type="hidden" name="ik_fal_u" value="<?php echo $failUrl?>">
+				<input type="hidden" name="ik_pnd_u" value="<?php echo $failUrl?>">
+				<input type="hidden" name="ik_ia_u" value="<?php echo $successUrl?>">
+				<input type="hidden" name="ik_sign" value="<?php echo $sign?>">
+				<input type="submit" value="Оплатить">
+			</form>
+			<?php
+		}
+	}
+	public function getInvoice()
+	{
+		return $this->getNotification();
+	}
+	public function wrlog($content){
+		$file = 'log.txt';
+		$doc = fopen($file, 'a');
+		file_put_contents($file, PHP_EOL . $content, FILE_APPEND);	
+		fclose($doc);
+	}
+	public static function test(){
+		wrlog('Hello from test');
+	}
+}
+
+function wrlog($content){
+	$file = 'log.txt';
+	$doc = fopen($file, 'a');
+	file_put_contents($file, PHP_EOL . $content, FILE_APPEND);	
+	fclose($doc);
+}
+
