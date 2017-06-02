@@ -205,6 +205,31 @@ class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
             </a></p>
         <p>Сумма заказа составляет: <strong><?php echo $this->_shopOrder->sum() ?></strong></p>
         <p>Для оплаты нажмите кнопку "Оплатить".</p>
+        
+        <style>
+            .ik_button {
+                background: #27ae60;
+                border-top: 2px solid #27ae60;
+                border-bottom: 2px solid #1f9952;
+                border-left: none;
+                border-right: none;
+                font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+                font-size: 14px;
+                color: #fff;
+                font-weight: 700;
+                outline: 0;
+                text-shadow: none;
+                padding: 4px 15px;
+                margin: 0;
+                filter: none;
+            }
+
+            .ik_button:hover {
+                background-color: #57d68d;
+                border-top-color: #57d68d;
+                border-bottom-color: #27ae60;
+            }
+        </style>        
 
         <form action="https://sci.interkassa.com" method="POST" accept-charset='UTF-8'>
             <input type="hidden" name="ik_co_id" value="<?php echo $this->ik_co_id ?>">
@@ -257,29 +282,3 @@ class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
         return true;
     }
 }
-
-?>
-<style>
-    .ik_button {
-        background: #27ae60;
-        border-top: 2px solid #27ae60;
-        border-bottom: 2px solid #1f9952;
-        border-left: none;
-        border-right: none;
-        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
-        font-size: 14px;
-        color: #fff;
-        font-weight: 700;
-        outline: 0;
-        text-shadow: none;
-        padding: 4px 15px;
-        margin: 0;
-        filter: none;
-    }
-
-    .ik_button:hover {
-        background-color: #57d68d;
-        border-top-color: #57d68d;
-        border-bottom-color: #27ae60;
-    }
-</style>
