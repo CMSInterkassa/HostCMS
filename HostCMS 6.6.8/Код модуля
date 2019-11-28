@@ -5,24 +5,32 @@
  * Сайт разработчикa: www.gateon.net
  * E-mail: www@smartbyte.pro
  * Interkassa 2.0
- * Last update 15.03.2017
- * Версия 1.4
+ * Last update 01.11.2019
+ * Версия 1.5
  */
-class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
-{
+class Shop_Payment_System_Handler19 extends Shop_Payment_System_Handler
+{   
+    protected $XX = 'XX';
+    
     // Идентификатор кассы
-    protected $ik_co_id = "Ваш идентификатор кассы";
+    protected $ik_co_id = "XXXXXXXXXXXXXXXXX";
 
 
     //Секретный ключ
-    protected $ik_secret_key = "Секретный ключ";
+    protected $ik_secret_key = "XXXXXXXXXXXXXXXXX";
 
     //Тестовый ключ (
-    protected $ik_test_key = "Тестовый ключ";
+    protected $ik_test_key = "XXXXXXXXXXXXXXXXX";
 
     // Код валюты в магазине HostCMS для валюты платежа в личном кабинете Интеркассы
     protected $interkassa_currency = 1; //вставьте сюда число из Интернет-магазины-> Финансы -> Валюты
 
+		protected $api_mode = true;
+	
+		protected $api_id = 'XXXXXXXXXXXXXXXXX';
+	
+		protected $api_key = 'XXXXXXXXXXXXXXXXX';
+		
     /**
      * Метод, вызываемый в коде настроек ТДС через Shop_Payment_System_Handler::checkBeforeContent($oShop);
      */
@@ -44,9 +52,13 @@ class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
         return $this->getNotification();
     }
 
+/*
+ * Метод, запускающий выполнение обработчика
+*/
     public function execute()
     {
         parent::execute();
+        // Показ формы оплаты (перехода на оплату), сама форма генерируется в getNotification()
         $this->printNotification();
         return $this;
     }
@@ -87,12 +99,14 @@ class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
                 } else {
                     $secret_key = $this->ik_secret_key;
                 }
-
+    
+                
+            
                 $request = $_POST;
                 $request_sign = $request['ik_sign'];
                 unset($request['ik_sign']);
-
-                //удаляем все поле которые не принимают участия в формировании цифровой подписи
+                
+            //удаляем все поле которые не принимают участия в формировании цифровой подписи
                 foreach ($request as $key => $value) {
                     if (!preg_match('/ik_/', $key)) continue;
                     $request[$key] = $value;
@@ -103,7 +117,7 @@ class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
                 array_push($request, $secret_key);
                 $str = implode(':', $request);
                 $sign = base64_encode(md5($str, true));
-
+                
                 //Если подписи совпадают то осуществляется смена статуса заказа в админке
                 if ($request_sign == $sign) {
                     $this->_shopOrder->system_information = sprintf("
@@ -206,6 +220,7 @@ class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
         <p>Сумма заказа составляет: <strong><?php echo $this->_shopOrder->sum() ?></strong></p>
         <p>Для оплаты нажмите кнопку "Оплатить".</p>
 
+        <?php if(!$this->api_mode){ ?>
         <form action="https://sci.interkassa.com" method="POST" accept-charset='UTF-8'>
             <input type="hidden" name="ik_co_id" value="<?php echo $this->ik_co_id ?>">
             <input type="hidden" name="ik_am" value="<?php echo $ik_am ?>">
@@ -219,9 +234,119 @@ class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
             <input type="hidden" name="ik_sign" value="<?php echo $sign ?>">
             <input type="submit" class="ik_button" value="Оплатить">
         </form>
-        <?php
+        
+        <!-- ====================================  -->
+        
+        
+        <?php }
+        if($this->api_mode){  $payment_systems = $this->getIkPaymentSystems();
+            	if (is_array($payment_systems) && !empty($payment_systems)) { ?>
+                
+                <script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
+                <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+                <script src='/templates/template<?= $this->XX ?>/assets/ik.js'></script>
+                
+                <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+            	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+                <link rel="stylesheet" href='/templates/template<?= $this->XX ?>/assets/ik.css'>
+    		
+                
+            
+                
+            	
+	<div>
+		<button  id="InterkassaModalButton" class="sel-ps-ik btn btn-info btn-lg" data-toggle="modal" data-target="#InterkassaModal">Выберите метод оплаты</button>
+	</div>
+    <div class="interkasssa" style="text-align: center;">
+    	<div id="InterkassaModal" class="modal fade" role="dialog">
+    		<div class="modal-dialog modal-lg">
+    		
+    		
+    		
+    			<div class="modal-content" id="plans">
+    				<div class="container">
+    					<h3>
+    						1. Choose a convenient payment method<br>
+    						2. Enter currency<br>
+    						3. Click Pay<br>
+    					</h3>
+    					<div class="row">
+                                <form action="https://sci.interkassa.com/" method="post" id="umi-ik-checkout">
+                                    <input type="hidden" name="ik_co_id" value="<?php echo $this->ik_co_id ?>">
+                                    <input type="hidden" name="ik_am" value="<?php echo $ik_am ?>">
+                                    <input type="hidden" name="ik_pm_no" value="<?php echo $ik_pm_no ?>">
+                                    <input type="hidden" name="ik_desc" value="<?php echo $ik_desc ?>">
+                                    <input type="hidden" name="ik_cur" value="<?php echo $ik_cur; ?>"/>
+                                    <input type="hidden" name="ik_suc_u" value="<?php echo $ik_suc_u ?>">
+                                    <input type="hidden" name="ik_fal_u" value="<?php echo $ik_fal_u ?>">
+                                    <input type="hidden" name="ik_pnd_u" value="<?php echo $ik_pnd_u ?>">
+                                    <input type="hidden" name="ik_ia_u" value="<?php echo $ik_ia_u ?>">
+                                    <input type="hidden" name="ik_sign" value="<?php echo $sign ?>">
+            
+	<?php if (isset($ik_pw_via) && $ik_pw_via == 'test_interkassa_test_xts') { ?>
+		<input type="hidden" name='ik_pw_via' value="$ik_pw_via" />
+	<?php } ?>
 
+	
+	<div>
+	
+	</div>
+
+	<div class="clearfix"></div>
+	<?php if (empty($payment_systems)) { ?>
+		<div>
+			<input type="submit" value="pay" class="button big"/>
+		</div>
+	<?php  }
+	?>
+
+</form>
+        <!-- ====================================  -->
+        
+ 
+       <?php
+            foreach ($payment_systems as $ps => $info) { ?>
+							<div class="col-sm-3 text-center payment_system">
+								<div class="panel panel-warning panel-pricing">
+									<div class="panel-heading">
+										<div class="panel-image">
+											<img src="<?php echo "/templates/template$this->XX/paysystems/" . $ps; ?>.png"
+												 alt="<?php echo $info['title']; ?>">
+										</div>
+									</div>
+									<div class="form-group">
+										<div class="input-group">
+											<div class="radioBtn btn-group">
+											    
+												<?php foreach ($info['currency'] as $currency => $currencyAlias) { ?>
+													<a class="btn btn-primary btn-sm notActive" href='javascript:void(0);'
+													   data-toggle="fun"
+													   data-payment ="<?= $ps;?>"
+													   data-title="<?= $currencyAlias; ?>"><?= $currency; ?></a>
+												<?php } ?>
+												
+											</div>
+										</div>
+									</div>
+									<div class="panel-footer">
+										<a class="btn btn-lg btn-block btn-success ik-payment-confirmation"
+										   data-payment="<?= $ps; ?>"
+										   href="javascript:void(0);">Pay via<br>
+											<strong><?= $info['title']; ?></strong>
+										</a>
+									</div>
+								</div>
+							</div>
+				<?php }
+				echo '					</div>
+				</div>
+			</div> </div> </div> </div>
+';
+ 
+        }
     }
+    }
+    
 
 
     public function wrlog($content)
@@ -248,14 +373,114 @@ class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
     {
         $ip_stack = array(
             'ip_begin' => '151.80.190.97',
-            'ip_end' => '151.80.190.104'
+            'ip_end' => '35.233.69.55'
         );
 
-        if (ip2long($_SERVER['REMOTE_ADDR']) < ip2long($ip_stack['ip_begin']) || ip2long($_SERVER['REMOTE_ADDR']) > ip2long($ip_stack['ip_end'])) {
+     if (ip2long($_SERVER['REMOTE_ADDR']) < ip2long($ip_stack['ip_begin']) || ip2long($_SERVER['REMOTE_ADDR']) > ip2long($ip_stack['ip_end'])) {
             $this->wrlog('REQUEST IP' . $_SERVER['REMOTE_ADDR'] . 'doesnt match');
         }
         return true;
     }
+    
+    //======================API functions==========================
+    
+    function getIkPaymentSystems()
+{
+
+        $username = $this->api_id;
+        $password = $this->api_key;
+        $remote_url = 'https://api.interkassa.com/v1/paysystem-input-payway?checkoutId='.$this->ik_co_id;
+        
+        $businessAcc = $this->getIkBusinessAcc();
+   
+            
+        $ikHeaders = [];
+        $ikHeaders[] = "Authorization: Basic " . base64_encode("$username:$password");
+        if (!empty($businessAcc)) {
+            $ikHeaders[] = "Ik-Api-Account-Id: " . $businessAcc;
+        }
+                
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $remote_url);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+        curl_setopt($ch, CURLOPT_HEADER, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $ikHeaders);
+        $response = curl_exec($ch);
+        $json_data = json_decode($response);
+        
+        if (empty($json_data))
+            echo'<strong style="color:red;">Error!!! System response empty!</strong>';
+
+            if ($json_data->status != 'error') {
+                $payment_systems = array();
+                if (!empty($json_data->data)) {
+                    
+                    foreach ($json_data->data as $ps => $info) {
+                        $payment_system = $info->ser;
+                        if (!array_key_exists($payment_system, $payment_systems)) {
+                            $payment_systems[$payment_system] = array();
+                            foreach ($info->name as $name) {
+                                if ($name->l == 'en') {
+                                    $payment_systems[$payment_system]['title'] = ucfirst($name->v);
+                                }
+                                $payment_systems[$payment_system]['name'][$name->l] = $name->v;
+                            }
+                        }
+                        $payment_systems[$payment_system]['currency'][strtoupper($info->curAls)] = $info->als;
+                    }
+                }
+                    
+                return !empty($payment_systems) ? $payment_systems : '<strong style="color:red;">API connection error or system response empty!</strong>';
+            } else {
+                if (!empty($json_data->message))
+                    echo '<strong style="color:red;">API connection error!<br>' . $json_data->message . '</strong>';
+                else
+                    echo '<strong style="color:red;">API connection error or system response empty!</strong>';
+            }
+        }
+    
+    public function getIkBusinessAcc()         {
+            $tmpLocationFile = __DIR__ . '/tmpLocalStorageBusinessAcc.ini';
+            $dataBusinessAcc = function_exists('file_get_contents') ? file_get_contents($tmpLocationFile) : '{}';
+            $dataBusinessAcc = json_decode($dataBusinessAcc, 1);
+            $businessAcc = is_string($dataBusinessAcc['businessAcc']) ? trim($dataBusinessAcc['businessAcc']) : '';
+            if (empty($businessAcc) || sha1($this->api_id . $this->api_key) !== $dataBusinessAcc['hash']) {
+                $curl = curl_init();
+                curl_setopt($curl, CURLOPT_URL, 'https://api.interkassa.com/v1/' . 'account');
+                curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($curl, CURLOPT_FOLLOWLOCATION, false);
+                curl_setopt($curl, CURLOPT_HEADER, false);
+                curl_setopt($curl, CURLOPT_HTTPHEADER, ["Authorization: Basic " . base64_encode("$this->api_id:$this->api_key")]);
+                $response = curl_exec($curl);
+                $response = json_decode($response,1);
+
+
+                if (!empty($response['data'])) {
+                    foreach ($response['data'] as $id => $data) {
+                        if ($data['tp'] == 'b') {
+                            $businessAcc = $id;
+                            break;
+                        }
+                    }
+                }
+
+                if (function_exists('file_put_contents')) {
+                    $updData = [
+                        'businessAcc' => $businessAcc,
+                        'hash' => sha1($this->api_id . $this->api_key)
+                    ];
+                    file_put_contents($tmpLocationFile, json_encode($updData, JSON_PRETTY_PRINT));
+                }
+
+                return $businessAcc;
+            }
+
+            return $businessAcc;
+    }    
+        
 }
 
 ?>
@@ -282,4 +507,5 @@ class Shop_Payment_System_HandlerXX extends Shop_Payment_System_Handler
         border-top-color: #57d68d;
         border-bottom-color: #27ae60;
     }
+    
 </style>

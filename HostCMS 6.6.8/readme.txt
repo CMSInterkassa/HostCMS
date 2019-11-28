@@ -32,11 +32,14 @@ E-mail: www@smartbyte.pro
 	class Shop_Payment_System_Handler74 extends Shop_Payment_System_Handler
 	{
 
-	ќпуститесь ниже там есть четыре главных параметра:
+	ќпуститесь ниже там есть семь главных параметра:
 	protected $ik_co_id
 	protected $ik_secret_key
 	protected $ik_test_key
 	protected $interkassa_currency
+	protected $api_mode (true,false)
+	protected $api_id
+	protected $api_key
 
 	«аполните их в соответствии с указани€ми.
 
@@ -93,8 +96,11 @@ E-mail: www@smartbyte.pro
 	   $order_id = intval(Core_Array::getRequest('ik_pm_no'));
 	  
 	}	
+4)ѕереходим в корневую папку -> templates ->templateXX
 
-4) ≈ще раз проверьте правильно ли вы ввели все параметры и вз€ли нужную валюту
+5)»звлекаем содержимое архива template.zip в папку  templateXX
+
+6) ≈ще раз проверьте правильно ли вы ввели все параметры и вз€ли нужную валюту
 
 
 !!!ќЅя«ј“≈Ћ№Ќќ ќ«Ќј ќћ»“№—я
